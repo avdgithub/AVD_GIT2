@@ -51,3 +51,153 @@ result_df.show()
 =====================================================================================
 
 
+clessify_bank_v2
+
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, when
+
+# Initialize a Spark session
+spark = SparkSession.builder.appName("BankClassifier").getOrCreate()
+
+# Sample data
+data = [("BankA", "Remitter1", "out", "Personal Transfer", "Some Category"),
+        ("BankB", "Remitter2", "in", "Personal Transfer", "Some Category"),
+        ("BankC", "Remitter3", "out", "Business Transfer", "Some Category")]
+
+# Define the schema for the DataFrame
+schema = ["beneficiary_bank_name", "remitter_name", "direction", "category_level1", "category_level2"]
+
+# Create a PySpark DataFrame
+df = spark.createDataFrame(data, schema=schema)
+
+# Define the PySpark when statement for classification
+result_df = df.withColumn(
+    "classification",
+    when(col("direction") == "in", "N/A")
+    .when(
+        (col("direction") == "out") & 
+        ((col("category_level1") == "Personal Transfer") | (col("category_level2").isin(["Personal Transfer", "transfer self"]))),
+        when(
+            (col("remitter_name") == broadcast_cerlic_banks.value['Borrower Name']) &
+            (col("beneficiary_bank_name") == broadcast_cerlic_banks.value['Name of Lender Bank']),
+            "Lending Bank"
+        ).otherwise("Non Lending Bank")
+    )
+    .otherwise("Unknown")
+)
+
+# Show the result
+result_df.show()
+
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+clssify linkage v2
+
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, when
+
+# Initialize a Spark session
+spark = SparkSession.builder.appName("LinkageClassifier").getOrCreate()
+
+# Sample data
+data = [("Beneficiary1", "Remitter1", "out"),
+        ("Beneficiary2", "Remitter2", "in"),
+        ("Beneficiary3", "Remitter3", "out")]
+
+# Define the schema for the DataFrame
+schema = ["benef_name", "remitter_name", "direction"]
+
+# Create a PySpark DataFrame
+df = spark.createDataFrame(data, schema=schema)
+
+# Sample data for broadcast_related_party
+related_party_data = [{"Related Party Name": "Beneficiary1", "Borrower Name": "Remitter1", "Linkages": "Linkage1"},
+                      {"Related Party Name": "Beneficiary2", "Borrower Name": "Remitter2", "Linkages": "Linkage2"}]
+
+# Create a PySpark DataFrame for broadcast_related_party
+broadcast_related_party = spark.sparkContext.broadcast(related_party_data)
+
+# Define the PySpark when statement for classification
+result_df = df.withColumn(
+    "classification",
+    when(col("direction") == "in", "N/A")
+    .when(
+        (col("direction") == "out") & 
+        (col("benef_name") == broadcast_related_party.value[0]['Related Party Name']) &
+        (col("remitter_name") == broadcast_related_party.value[0]['Borrower Name']),
+        broadcast_related_party.value[0]['Linkages']
+    )
+    .when(
+        (col("direction") == "out") & 
+        (col("benef_name") == broadcast_related_party.value[1]['Related Party Name']) &
+        (col("remitter_name") == broadcast_related_party.value[1]['Borrower Name']),
+        broadcast_related_party.value[1]['Linkages']
+    )
+    .otherwise("None")
+)
+
+# Show the result
+result_df.show()
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+related party match
+
+
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, when
+
+# Initialize a Spark session
+spark = SparkSession.builder.appName("RelatedPartyMatcher").getOrCreate()
+
+# Sample data
+data = [("Beneficiary1", "Remitter1", "out"),
+        ("Beneficiary2", "Remitter2", "in"),
+        ("Beneficiary3", "Remitter3", "out")]
+
+# Define the schema for the DataFrame
+schema = ["beneficiary_name", "remitter_name", "direction"]
+
+# Create a PySpark DataFrame
+df = spark.createDataFrame(data, schema=schema)
+
+# Sample data for broadcast_related_party
+related_party_data = [{"Related Party Name": "Beneficiary1", "Borrower Name": "Remitter1"},
+                      {"Related Party Name": "Beneficiary2", "Borrower Name": "Remitter2"}]
+
+# Create a PySpark DataFrame for broadcast_related_party
+broadcast_related_party = spark.sparkContext.broadcast(related_party_data)
+
+# Define the PySpark when statement for classification
+result_df = df.withColumn(
+    "related_party_match",
+    when(col("direction") == "in", "N/A")
+    .when(
+        (col("direction") == "out") & 
+        (col("beneficiary_name") == broadcast_related_party.value[0]['Related Party Name']) &
+        (col("remitter_name") == broadcast_related_party.value[0]['Borrower Name']),
+        "Y"
+    )
+    .when(
+        (col("direction") == "out") & 
+        (col("beneficiary_name") == broadcast_related_party.value[1]['Related Party Name']) &
+        (col("remitter_name") == broadcast_related_party.value[1]['Borrower Name']),
+        "Y"
+    )
+    .otherwise("N")
+)
+
+# Show the result
+result_df.show()
+
+
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
