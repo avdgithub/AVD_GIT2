@@ -1,2 +1,51 @@
-ihello Asif
-how are you
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, when
+
+# Initialize a Spark session
+spark = SparkSession.builder.appName("TransactionClassifier").getOrCreate()
+
+# Define the corporate keywords
+corporate_keywords = ["corp", "corporation", "company"]
+
+# Sample data
+data = [("IFSC123", "123456789", "current", "ABC Corp"),
+        ("NOBANK", "987654321", "saving", "John Doe")]
+
+# Define the schema for the DataFrame
+schema = ["benef_ifsc", "benef_account_no", "source", "benef_name"]
+
+# Create a PySpark DataFrame
+df = spark.createDataFrame(data, schema=schema)
+
+# Define the PySpark when statement for classification
+result_df = df.withColumn(
+    "classification",
+    when((col("benef_ifsc").isNotNull()) & (col("benef_ifsc").startswith("YESB")), 
+         when(col("source") == "current", "ybl_corp")
+         .when(col("source") == "saving", "ybl_ind")
+         .otherwise(when(col("is_corporate"), "ybl_corp").otherwise("ybl_ind"))
+        )
+    .otherwise(when(col("is_corporate"), "non_ybl_cor").otherwise("non_ybl_ind"))
+)
+
+# Show the result
+result_df.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=====================================================================================
+
+
